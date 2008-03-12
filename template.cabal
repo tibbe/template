@@ -1,0 +1,29 @@
+name:               template
+version:            0.1.1.1
+description:        Simple string substitution library that supports
+                    \"$\"-based substitution.  Meant to be used when
+                    Text.Printf or string concatenation would lead to
+                    code that is hard to read but when a full blown
+                    templating system might be overkill.
+synopsis:           Simple string substitution
+category:           Text
+license:            BSD3
+license-file:       LICENSE
+author:             Johan Tibell
+maintainer:         johan.tibell@gmail.com
+build-type:          Simple
+cabal-version:       >= 1.2
+
+flag split-base
+  description: Chooce the new smaller, split-up base package.
+
+library
+  exposed-modules:  Text.Template
+
+  if flag(split-base)
+    build-depends:  base >= 3, bytestring, containers
+  else
+    build-depends:  base < 3
+  build-depends:    mtl
+
+  ghc-options:      -funbox-strict-fields -Wall
