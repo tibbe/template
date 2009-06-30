@@ -242,3 +242,22 @@ runParser p s = evalState p (s, 1 :: Int, 1 :: Int)
 -- >   where
 -- >     helloTemplate = T.pack "Hello, $name!\n"
 -- >     helloContext  = context [("name", "Joe")]
+--
+-- The example can be simplified slightly by using the
+-- 'OverloadedStrings' language extension:
+--
+-- > {-# LANGUAGE OverloadedStrings #-}
+-- >
+-- > module Main where
+-- >
+-- > import qualified Data.ByteString as S
+-- > import qualified Data.Map as M
+-- > import qualified Data.Text.Encoding as E
+-- >
+-- > import Text.Template
+-- >
+-- > main :: IO ()
+-- > main = S.putStr $ E.encodeUtf8 $ substitute helloTemplate helloContext
+-- >   where
+-- >     helloTemplate = "Hello, $name!\n"
+-- >     helloContext  = M.fromList [("name", "Joe")]
