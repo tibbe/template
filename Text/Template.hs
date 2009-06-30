@@ -75,6 +75,7 @@ instance Show Template where
 showTemplate :: Template -> T.Text
 showTemplate (Template fs) = T.concat $ map showFrag fs
 
+-- | A template fragment.
 data Frag = Lit !T.Text | Var !T.Text !Bool
 
 instance Show Frag where
@@ -84,9 +85,8 @@ showFrag :: Frag -> T.Text
 showFrag (Var s b) | b         = T.concat [T.pack "${", s, T.pack "}"]
                    | otherwise = T.concat [T.pack "$", s]
 showFrag (Lit s) = T.concatMap escape s
-    where escape c = case c of
-                       '$' -> T.pack "$$"
-                       c'  -> T.singleton c'
+    where escape '$' = T.pack "$$"
+          escape c   = T.singleton c
 
 -- | A mapping with keys that match the placeholders in the template.
 type Context = Map T.Text T.Text
@@ -99,7 +99,7 @@ template :: T.Text -> Template
 template = runParser pTemplate
 
 pTemplate :: Parser Template
-pTemplate = pFrags >>= return . Template
+pTemplate = fmap Template pFrags
 
 pFrags :: Parser [Frag]
 pFrags = do
@@ -140,10 +140,10 @@ pIdentifier :: Parser T.Text
 pIdentifier = do
   c <- peek
   case c of
-    Just c' -> if isAlphaNum c'
-                 then takeWhile isIdentifier
-                 else liftM parseError pos
-    Nothing -> liftM parseError pos
+    Just c'
+        | isAlphaNum c' -> takeWhile isIdentifier
+        | otherwise     -> liftM parseError pos
+    Nothing             -> liftM parseError pos
     where
       isIdentifier c = or [isAlphaNum c, c `elem` "_'"]
 
@@ -171,7 +171,7 @@ renderFrag ctx (Var x _) =
 --
 -- If a key is not found in the context an 'Prelude.error' is raised.
 substitute :: T.Text -> Context -> T.Text
-substitute tmpl = render (template tmpl)
+substitute = render . template
 
 -- -----------------------------------------------------------------------------
 -- Text parser
