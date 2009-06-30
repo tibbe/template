@@ -83,8 +83,9 @@ instance Show Frag where
     show = T.unpack . showFrag
 
 showFrag :: Frag -> T.Text
-showFrag (Var s b) | b         = T.concat [T.pack "${", s, T.pack "}"]
-                   | otherwise = T.concat [T.pack "$", s]
+showFrag (Var s b)
+    | b          = T.concat [T.pack "${", s, T.pack "}"]
+    | otherwise  = T.concat [T.pack "$", s]
 showFrag (Lit s) = T.concatMap escape s
     where escape '$' = T.pack "$$"
           escape c   = T.singleton c
@@ -104,49 +105,49 @@ pTemplate = fmap Template pFrags
 
 pFrags :: Parser [Frag]
 pFrags = do
-  c <- peek
-  case c of
-    Nothing  -> return []
-    Just '$' -> do c' <- peekSnd
-                   case c' of
-                     Just '$' -> do Just '$' <- char
-                                    Just '$' <- char
-                                    continue (return $ Lit $ T.pack "$")
-                     _        -> continue pVar
-    _        -> continue pLit
-    where
-      continue x = liftM2 (:) x pFrags
+    c <- peek
+    case c of
+        Nothing  -> return []
+        Just '$' -> do c' <- peekSnd
+                       case c' of
+                           Just '$' -> do Just '$' <- char
+                                          Just '$' <- char
+                                          continue (return $ Lit $ T.pack "$")
+                           _        -> continue pVar
+        _        -> continue pLit
+  where
+    continue x = liftM2 (:) x pFrags
 
 pLit :: Parser Frag
 pLit = do
-  s <- takeWhile (/= '$')
-  return $ Lit s
+    s <- takeWhile (/= '$')
+    return $ Lit s
 
 pVar :: Parser Frag
 pVar = do
-  Just '$' <- char
-  c <- peek
-  case c of
-    Just '{' -> do Just '{' <- char
-                   v <- pIdentifier
-                   c' <- peek
-                   case c' of
-                     Just '}' -> do Just '}' <- char
-                                    return $ Var v True
-                     _        -> liftM parseError pos
-    _        -> do v <- pIdentifier
-                   return $ Var v False
+    Just '$' <- char
+    c <- peek
+    case c of
+        Just '{' -> do Just '{' <- char
+                       v <- pIdentifier
+                       c' <- peek
+                       case c' of
+                         Just '}' -> do Just '}' <- char
+                                        return $ Var v True
+                         _        -> liftM parseError pos
+        _        -> do v <- pIdentifier
+                       return $ Var v False
 
 pIdentifier :: Parser T.Text
 pIdentifier = do
-  c <- peek
-  case c of
-    Just c'
-        | isAlphaNum c' -> takeWhile isIdentifier
-        | otherwise     -> liftM parseError pos
-    Nothing             -> liftM parseError pos
-    where
-      isIdentifier c = or [isAlphaNum c, c `elem` "_'"]
+    c <- peek
+    case c of
+      Just c'
+          | isAlphaNum c' -> takeWhile isIdentifier
+          | otherwise     -> liftM parseError pos
+      Nothing             -> liftM parseError pos
+  where
+    isIdentifier c = or [isAlphaNum c, c `elem` "_'"]
 
 parseError :: (Int, Int) -> a
 parseError (row, col) = error $ "Invalid placeholder in string: line " ++
@@ -162,8 +163,8 @@ renderFrag :: Context -> Frag -> T.Text
 renderFrag _ (Lit s)     = s
 renderFrag ctx (Var x _) =
     case Map.lookup x ctx of
-      Just s  -> s
-      Nothing -> error $ "Key not found: " ++ (show $ T.unpack x)
+        Just s  -> s
+        Nothing -> error $ "Key not found: " ++ (show $ T.unpack x)
 
 -- | Performs the template substitution, returning a new
 -- 'Data.Text'. Note that
@@ -181,48 +182,48 @@ type Parser = State (T.Text, Int, Int)
 
 char :: Parser (Maybe Char)
 char = do
-  (s, row, col) <- get
-  if T.null s
-    then return Nothing
-    else do c <- return $! T.head s
-            case c of
-              '\n' -> put (T.tail s, row + 1 :: Int, 1 :: Int)
-              _    -> put (T.tail s, row, col + 1 :: Int)
-            return $ Just c
+    (s, row, col) <- get
+    if T.null s
+      then return Nothing
+      else do c <- return $! T.head s
+              case c of
+                '\n' -> put (T.tail s, row + 1 :: Int, 1 :: Int)
+                _    -> put (T.tail s, row, col + 1 :: Int)
+              return $ Just c
 
 peek :: Parser (Maybe Char)
 peek = do
-  s <- get
-  c <- char
-  put s
-  return c
+    s <- get
+    c <- char
+    put s
+    return c
 
 peekSnd :: Parser (Maybe Char)
 peekSnd = do
-  s <- get
-  char
-  c <- char
-  put s
-  return c
+    s <- get
+    char
+    c <- char
+    put s
+    return c
 
 takeWhile :: (Char -> Bool) -> Parser T.Text
 takeWhile p = do
-  (s, row, col) <- get
-  case T.span p s of
-    (x, s') -> do
-                let newlines = T.elemIndices '\n' x
-                    n = T.length x
-                    row' = row + fromIntegral (length newlines)
-                    col' = case newlines of
-                             [] -> col + n
-                             _  -> n - last newlines
-                put (s', row', col')
-                return x
+    (s, row, col) <- get
+    case T.span p s of
+      (x, s') -> do
+                  let newlines = T.elemIndices '\n' x
+                      n = T.length x
+                      row' = row + fromIntegral (length newlines)
+                      col' = case newlines of
+                               [] -> col + n
+                               _  -> n - last newlines
+                  put (s', row', col')
+                  return x
 
 pos :: Parser (Int, Int)
 pos = do
-  (_, row, col) <- get
-  return (row, col)
+    (_, row, col) <- get
+    return (row, col)
 
 runParser :: Parser a -> T.Text -> a
 runParser p s = evalState p (s, 1 :: Int, 1 :: Int)
