@@ -18,18 +18,25 @@
 --
 -- Here is an example of a simple substitution:
 --
+-- > module Main where
+-- >
 -- > import qualified Data.ByteString as S
+-- > import qualified Data.Map as M
 -- > import qualified Data.Text as T
 -- > import qualified Data.Text.Encoding as E
+-- >
 -- > import Text.Template
 -- >
--- > context = Map.fromList . map packPair
+-- > -- | Create 'Context' from association list.
+-- > context :: [(String, String)] -> M.Map T.Text T.Text
+-- > context = M.fromList . map packPair
 -- >     where packPair (x, y) = (T.pack x, T.pack y)
 -- >
--- > helloTemplate = T.pack "Hello, $name! Want some ${fruit}s?\n"
--- > helloContext = context [("name", "Johan"), ("fruit", "banana")]
--- >
+-- > main :: IO ()
 -- > main = S.putStr $ E.encodeUtf8 $ substitute helloTemplate helloContext
+-- >   where
+-- >     helloTemplate = T.pack "Hello, $name!\n"
+-- >     helloContext  = context [("name", "Joe")]
 --
 -- If you render the same template multiple times it's faster to first
 -- convert it to a more efficient representation using 'template' and
