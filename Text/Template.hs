@@ -100,6 +100,28 @@ type Context = Map T.Text T.Text
 template :: T.Text -> Template
 template = runParser pTemplate
 
+-- | Performs the template substitution, returning a new 'Data.Text'.
+--
+-- If a key is not found in the context an 'Prelude.error' is raised.
+render :: Template -> Context -> T.Text
+render (Template frags) ctx = T.concat $ map renderFrag frags
+  where
+    renderFrag (Lit s)   = s
+    renderFrag (Var x _) = maybe keyError id (Map.lookup x ctx)
+      where keyError = error $ "Key not found: " ++ (show $ T.unpack x)
+
+-- | Performs the template substitution, returning a new
+-- 'Data.Text'. Note that
+--
+-- > substitute tmpl ctx == render (template tmpl) ctx
+--
+-- If a key is not found in the context an 'Prelude.error' is raised.
+substitute :: T.Text -> Context -> T.Text
+substitute = render . template
+
+-- -----------------------------------------------------------------------------
+-- Template parser
+
 pTemplate :: Parser Template
 pTemplate = fmap Template pFrags
 
@@ -152,28 +174,6 @@ pIdentifier = do
 parseError :: (Int, Int) -> a
 parseError (row, col) = error $ "Invalid placeholder in string: line " ++
                         show row ++ ", col " ++ show col
-
--- | Performs the template substitution, returning a new 'Data.Text'.
---
--- If a key is not found in the context an 'Prelude.error' is raised.
-render :: Template -> Context -> T.Text
-render (Template frags) ctx = T.concat $ map (renderFrag ctx) frags
-
-renderFrag :: Context -> Frag -> T.Text
-renderFrag _ (Lit s)     = s
-renderFrag ctx (Var x _) =
-    case Map.lookup x ctx of
-        Just s  -> s
-        Nothing -> error $ "Key not found: " ++ (show $ T.unpack x)
-
--- | Performs the template substitution, returning a new
--- 'Data.Text'. Note that
---
--- > substitute tmpl ctx == render (template tmpl) ctx
---
--- If a key is not found in the context an 'Prelude.error' is raised.
-substitute :: T.Text -> Context -> T.Text
-substitute = render . template
 
 -- -----------------------------------------------------------------------------
 -- Text parser
