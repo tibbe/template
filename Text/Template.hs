@@ -51,13 +51,14 @@ module Text.Template
      showTemplate,
     ) where
 
-import qualified Data.Text as T
-import Control.Monad.State
-import qualified Control.Monad.State as State
-import Data.Char
+import Control.Monad (liftM, liftM2)
+import Control.Monad.State (State, evalState, get, put)
+import Data.Char (isAlphaNum)
 import Data.Map (Map)
-import qualified Data.Map as Map
 import Prelude hiding (takeWhile)
+
+import qualified Data.Map as Map
+import qualified Data.Text as T
 
 -- -----------------------------------------------------------------------------
 
