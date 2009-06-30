@@ -5,7 +5,7 @@ import qualified Data.Map as M
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as E
 
-import Text.Template
+import Data.Text.Template
 
 -- | Create 'Context' from association list.
 context :: [(String, String)] -> M.Map T.Text T.Text

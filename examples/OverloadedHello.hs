@@ -6,7 +6,7 @@ import qualified Data.ByteString as S
 import qualified Data.Map as M
 import qualified Data.Text.Encoding as E
 
-import Text.Template
+import Data.Text.Template
 
 main :: IO ()
 main = S.putStr $ E.encodeUtf8 $ substitute helloTemplate helloContext
