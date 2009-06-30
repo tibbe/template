@@ -18,16 +18,18 @@
 --
 -- Here is an example of a simple substitution:
 --
--- > import qualified Data.ByteString.Lazy.Char8 as B
+-- > import qualified Data.ByteString as S
+-- > import qualified Data.Text as T
+-- > import qualified Data.Text.Encoding as E
 -- > import Text.Template
 -- >
 -- > context = Map.fromList . map packPair
--- >     where packPair (x, y) = (B.pack x, B.pack y)
+-- >     where packPair (x, y) = (T.pack x, T.pack y)
 -- >
--- > helloTemplate = B.pack "Hello, $name! Want some ${fruit}s?"
+-- > helloTemplate = T.pack "Hello, $name! Want some ${fruit}s?\n"
 -- > helloContext = context [("name", "Johan"), ("fruit", "banana")]
 -- >
--- > main = B.putStrLn $ substitute helloTemplate helloContext
+-- > main = S.putStr $ E.encodeUtf8 $ substitute helloTemplate helloContext
 --
 -- If you render the same template multiple times it's faster to first
 -- convert it to a more efficient representation using 'template' and
@@ -37,75 +39,63 @@
 module Text.Template
     (
      -- * The @Template@ type.
-     Template,           -- abstract
+     Template,
 
      -- * The @Context@ type.
      Context,
-            
+
      -- * Basic interface
-     template,           -- :: ByteString -> Template
-     render,             -- :: Template -> Context -> ByteString
-     substitute,         -- :: ByteString -> Context -> ByteString
-     showTemplate,       -- :: Template -> ByteString
-
-     -- * I\/O with 'Template's
-
-     -- ** Files
-     readTemplate,       -- :: FilePath -> IO Template
-     renderToFile,       -- :: FilePath -> Template -> Context -> IO ()
-
-     -- ** I\/O with Handles
-     hRender             -- :: Handle -> Template -> Context -> IO ()
+     template,
+     render,
+     substitute,
+     showTemplate,
     ) where
 
-import Data.ByteString.Lazy.Char8 (ByteString)
-import qualified Data.ByteString.Lazy.Char8 as B
-import Data.Int
+import qualified Data.Text as T
 import Control.Monad.State
 import qualified Control.Monad.State as State
 import Data.Char
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Prelude hiding (takeWhile)
-import System.IO
 
 -- -----------------------------------------------------------------------------
 
--- | A repesentation of a 'Data.ByteString.Lazy.Char8.ByteString'
--- template, supporting efficient rendering.
+-- | A repesentation of a 'Data.Text' template, supporting efficient
+-- rendering.
 newtype Template = Template [Frag]
 
 instance Eq Template where
     t1 == t2 = showTemplate t1 == showTemplate t2
 
 instance Show Template where
-    show = B.unpack . showTemplate
+    show = T.unpack . showTemplate
 
 -- | Shows the template string.
-showTemplate :: Template -> ByteString
-showTemplate (Template fs) = B.concat $ map showFrag fs
+showTemplate :: Template -> T.Text
+showTemplate (Template fs) = T.concat $ map showFrag fs
 
-data Frag = Lit !ByteString | Var !ByteString !Bool
+data Frag = Lit !T.Text | Var !T.Text !Bool
 
 instance Show Frag where
-    show = B.unpack . showFrag
+    show = T.unpack . showFrag
 
-showFrag :: Frag -> ByteString
-showFrag (Var s b) | b         = B.concat [B.pack "${", s, B.pack "}"]
-                   | otherwise = B.concat [B.pack "$", s]
-showFrag (Lit s) = B.concatMap escape s
+showFrag :: Frag -> T.Text
+showFrag (Var s b) | b         = T.concat [T.pack "${", s, T.pack "}"]
+                   | otherwise = T.concat [T.pack "$", s]
+showFrag (Lit s) = T.concatMap escape s
     where escape c = case c of
-                       '$' -> B.pack "$$"
-                       c'  -> B.singleton c'
+                       '$' -> T.pack "$$"
+                       c'  -> T.singleton c'
 
 -- | A mapping with keys that match the placeholders in the template.
-type Context = Map ByteString ByteString
+type Context = Map T.Text T.Text
 
 -- -----------------------------------------------------------------------------
 -- Basic interface
 
 -- | Creates a template from a template string.
-template :: ByteString -> Template
+template :: T.Text -> Template
 template = runParser pTemplate
 
 pTemplate :: Parser Template
@@ -120,7 +110,7 @@ pFrags = do
                    case c' of
                      Just '$' -> do Just '$' <- char
                                     Just '$' <- char
-                                    continue (return $ Lit $ B.pack "$")
+                                    continue (return $ Lit $ T.pack "$")
                      _        -> continue pVar
     _        -> continue pLit
     where
@@ -146,7 +136,7 @@ pVar = do
     _        -> do v <- pIdentifier
                    return $ Var v False
 
-pIdentifier :: Parser ByteString
+pIdentifier :: Parser T.Text
 pIdentifier = do
   c <- peek
   case c of
@@ -157,72 +147,46 @@ pIdentifier = do
     where
       isIdentifier c = or [isAlphaNum c, c `elem` "_'"]
 
-parseError :: (Int64, Int64) -> a
+parseError :: (Int, Int) -> a
 parseError (row, col) = error $ "Invalid placeholder in string: line " ++
                         show row ++ ", col " ++ show col
 
--- | Performs the template substitution, returning a new
--- 'Data.ByteString.Lazy.Char8.ByteString'.
+-- | Performs the template substitution, returning a new 'Data.Text'.
 --
 -- If a key is not found in the context an 'Prelude.error' is raised.
-render :: Template -> Context -> ByteString
-render (Template frags) ctx = B.concat $ map (renderFrag ctx) frags
+render :: Template -> Context -> T.Text
+render (Template frags) ctx = T.concat $ map (renderFrag ctx) frags
 
-renderFrag :: Context -> Frag -> ByteString
+renderFrag :: Context -> Frag -> T.Text
 renderFrag _ (Lit s)     = s
 renderFrag ctx (Var x _) =
     case Map.lookup x ctx of
       Just s  -> s
-      Nothing -> error $ "Key not found: " ++ (show $ B.unpack x)
+      Nothing -> error $ "Key not found: " ++ (show $ T.unpack x)
 
 -- | Performs the template substitution, returning a new
--- 'Data.ByteString.Lazy.Char8.ByteString'. Note that
+-- 'Data.Text'. Note that
 --
 -- > substitute tmpl ctx == render (template tmpl) ctx
 --
 -- If a key is not found in the context an 'Prelude.error' is raised.
-substitute :: ByteString -> Context -> ByteString
+substitute :: T.Text -> Context -> T.Text
 substitute tmpl = render (template tmpl)
 
 -- -----------------------------------------------------------------------------
--- Files
+-- Text parser
 
--- | Reads a template from a file lazily.  Use 'text mode' on Windows to
--- interpret newlines
-readTemplate :: FilePath -> IO Template
-readTemplate f = (return . template) =<< B.readFile f
+type Parser = State (T.Text, Int, Int)
 
--- | Renders and writes a template to a file. This is more efficient
--- than first 'render'ing the template to a
--- 'Data.ByteString.Lazy.Char8.ByteString' and then writing it to a file
--- using 'Data.ByteString.Lazy.Char8.writeFile'.
-renderToFile :: FilePath -> Template -> Context -> IO ()
-renderToFile f tmpl = B.writeFile f . render tmpl
-
--- -----------------------------------------------------------------------------
--- I/O with Handles
-
--- | Renders and writes a template to a 'System.IO.Handle'. This is more
--- efficient than first 'render'ing the template to a
--- 'Data.ByteString.Lazy.Char8.ByteString' and then writing it to a
--- 'System.IO.Handle' using 'Data.ByteString.Lazy.Char8.hPutStr'.
-hRender :: Handle -> Template -> Context -> IO ()
-hRender h (Template frags) ctx = mapM_ (B.hPut h . renderFrag ctx) frags
-
--- -----------------------------------------------------------------------------
--- ByteString parser
-
-type Parser = State (ByteString, Int64, Int64)
-    
 char :: Parser (Maybe Char)
 char = do
   (s, row, col) <- get
-  if B.null s
+  if T.null s
     then return Nothing
-    else do c <- return $! B.head s
+    else do c <- return $! T.head s
             case c of
-              '\n' -> put (B.tail s, row + 1 :: Int64, 1 :: Int64)
-              _    -> put (B.tail s, row, col + 1 :: Int64)
+              '\n' -> put (T.tail s, row + 1 :: Int, 1 :: Int)
+              _    -> put (T.tail s, row, col + 1 :: Int)
             return $ Just c
 
 peek :: Parser (Maybe Char)
@@ -240,13 +204,13 @@ peekSnd = do
   put s
   return c
 
-takeWhile :: (Char -> Bool) -> Parser ByteString
+takeWhile :: (Char -> Bool) -> Parser T.Text
 takeWhile p = do
   (s, row, col) <- get
-  case B.span p s of
-    (x, s') -> do 
-                let newlines = B.elemIndices '\n' x
-                    n = B.length x
+  case T.span p s of
+    (x, s') -> do
+                let newlines = T.elemIndices '\n' x
+                    n = T.length x
                     row' = row + fromIntegral (length newlines)
                     col' = case newlines of
                              [] -> col + n
@@ -254,10 +218,10 @@ takeWhile p = do
                 put (s', row', col')
                 return x
 
-pos :: Parser (Int64, Int64)
+pos :: Parser (Int, Int)
 pos = do
   (_, row, col) <- get
   return (row, col)
 
-runParser :: Parser a -> ByteString -> a
-runParser p s = evalState p (s, 1 :: Int64, 1 :: Int64)
+runParser :: Parser a -> T.Text -> a
+runParser p s = evalState p (s, 1 :: Int, 1 :: Int)
