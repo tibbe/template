@@ -42,7 +42,9 @@ module Data.Text.Template
 import Control.Monad (liftM, liftM2)
 import Control.Monad.State (State, evalState, get, put)
 import Data.Char (isAlphaNum)
+import Data.Function (on)
 import Data.Map (Map)
+import Data.Maybe (fromMaybe)
 import Prelude hiding (takeWhile)
 
 import qualified Data.Map as Map
@@ -55,7 +57,7 @@ import qualified Data.Text as T
 newtype Template = Template [Frag]
 
 instance Eq Template where
-    t1 == t2 = showTemplate t1 == showTemplate t2
+    (==) = (==) `on` showTemplate
 
 instance Show Template where
     show = T.unpack . showTemplate
@@ -95,8 +97,8 @@ render :: Template -> Context -> T.Text
 render (Template frags) ctx = T.concat $ map renderFrag frags
   where
     renderFrag (Lit s)   = s
-    renderFrag (Var x _) = maybe keyError id (Map.lookup x ctx)
-      where keyError = error $ "Key not found: " ++ (show $ T.unpack x)
+    renderFrag (Var x _) = fromMaybe keyError (Map.lookup x ctx)
+      where keyError = error $ "Key not found: " ++ show (T.unpack x)
 
 -- | Performs the template substitution, returning a new
 -- 'Data.Text'. Note that
