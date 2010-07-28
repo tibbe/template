@@ -28,6 +28,7 @@ module Data.Text.Template
 
      -- * The @Context@ type
      Context,
+     makeContext,
 
      -- * Basic interface
      template,
@@ -81,7 +82,13 @@ showFrag (Lit s) = T.concatMap escape s
           escape c   = T.singleton c
 
 -- | A mapping with keys that match the placeholders in the template.
-type Context = Map T.Text T.Text
+type Context = T.Text -> T.Text
+
+-- | Makes a context from a map, with a default item for unknown keys.
+--
+-- You can use a call to @error@ as the default item if you wish.
+makeContext :: T.Text -> Map T.Text T.Text -> Context
+makeContext def m k = fromMaybe def (Map.lookup k m)
 
 -- -----------------------------------------------------------------------------
 -- Basic interface
@@ -91,21 +98,16 @@ template :: T.Text -> Template
 template = runParser pTemplate
 
 -- | Performs the template substitution, returning a new 'Data.Text'.
---
--- If a key is not found in the context an 'Prelude.error' is raised.
 render :: Template -> Context -> T.Text
-render (Template frags) ctx = T.concat $ map renderFrag frags
+render (Template frags) ctxFunc = T.concat $ map renderFrag frags
   where
     renderFrag (Lit s)   = s
-    renderFrag (Var x _) = fromMaybe keyError (Map.lookup x ctx)
-      where keyError = error $ "Key not found: " ++ show (T.unpack x)
+    renderFrag (Var x _) = ctxFunc x
 
 -- | Performs the template substitution, returning a new
 -- 'Data.Text'. Note that
 --
 -- > substitute tmpl ctx == render (template tmpl) ctx
---
--- If a key is not found in the context an 'Prelude.error' is raised.
 substitute :: T.Text -> Context -> T.Text
 substitute = render . template
 
@@ -231,16 +233,18 @@ runParser p s = evalState p (s, 1 :: Int, 1 :: Int)
 -- > module Main where
 -- >
 -- > import qualified Data.ByteString as S
--- > import qualified Data.Map as M
 -- > import qualified Data.Text as T
 -- > import qualified Data.Text.Encoding as E
 -- >
 -- > import Data.Text.Template
 -- >
 -- > -- | Create 'Context' from association list.
--- > context :: [(String, String)] -> M.Map T.Text T.Text
--- > context = M.fromList . map packPair
+-- > context :: [(String, String)] -> Context
+-- > context = makeLookup . map packPair
 -- >     where packPair (x, y) = (T.pack x, T.pack y)
+-- >           makeLookup assocs x = case lookup x assocs of
+-- >             Just y -> y
+-- >             Nothing -> error ("Could not find key: " ++ T.unpack x)
 -- >
 -- > main :: IO ()
 -- > main = S.putStr $ E.encodeUtf8 $ substitute helloTemplate helloContext
@@ -265,4 +269,4 @@ runParser p s = evalState p (s, 1 :: Int, 1 :: Int)
 -- > main = S.putStr $ E.encodeUtf8 $ substitute helloTemplate helloContext
 -- >   where
 -- >     helloTemplate = "Hello, $name!\n"
--- >     helloContext  = M.fromList [("name", "Joe")]
+-- >     helloContext  = makeContext (error "Could not find key") [("name", "Joe")]
