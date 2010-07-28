@@ -28,6 +28,7 @@ module Data.Text.Template
 
      -- * The @Context@ type
      Context,
+     ContextM,
      makeContext,
 
      -- * Basic interface
@@ -35,6 +36,10 @@ module Data.Text.Template
      render,
      substitute,
      showTemplate,
+
+     -- * Monadic interface
+     renderM,
+     substituteM,
 
      -- * Example
      -- $example
@@ -84,6 +89,9 @@ showFrag (Lit s) = T.concatMap escape s
 -- | A mapping with keys that match the placeholders in the template.
 type Context = T.Text -> T.Text
 
+-- | Like 'Context' but with a monadic lookup function.
+type ContextM m = T.Text -> m T.Text
+
 -- | Makes a context from a map, with a default item for unknown keys.
 --
 -- You can use a call to @error@ as the default item if you wish.
@@ -104,12 +112,31 @@ render (Template frags) ctxFunc = T.concat $ map renderFrag frags
     renderFrag (Lit s)   = s
     renderFrag (Var x _) = ctxFunc x
 
+-- | Like 'render' but allows the lookup to have monadic side effects.
+-- The lookups are performed in order that they are needed in the text.
+--
+-- You can use this to have side effects (e.g. mutation of state) during your lookup,
+-- but primarily this is useful to support error monads (e.g. Maybe) to allow
+-- you to give an error if a lookup cannot be made successfully.
+renderM :: Monad m => Template -> ContextM m -> m T.Text
+renderM (Template frags) ctxFunc = liftM T.concat $ mapM renderFrag frags
+  where
+    renderFrag (Lit s)   = return s
+    renderFrag (Var x _) = ctxFunc x
+
 -- | Performs the template substitution, returning a new
 -- 'Data.Text'. Note that
 --
 -- > substitute tmpl ctx == render (template tmpl) ctx
 substitute :: T.Text -> Context -> T.Text
 substitute = render . template
+
+-- | Performs the template substitution monadically, returning a new
+-- 'Data.Text'. Note that
+--
+-- > substituteM tmpl ctx == renderM (template tmpl) ctx
+substituteM :: Monad m => T.Text -> ContextM m -> m T.Text
+substituteM = renderM . template
 
 -- -----------------------------------------------------------------------------
 -- Template parser
