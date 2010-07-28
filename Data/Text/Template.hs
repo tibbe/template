@@ -199,14 +199,17 @@ peekSnd = do
 takeWhile :: (Char -> Bool) -> Parser T.Text
 takeWhile p = do
     (s, row, col) <- get
-    case T.span p s of
+    case T.spanBy p s of
       (x, s') -> do
-                  let newlines = T.elemIndices '\n' x
-                      n = T.length x
-                      row' = row + fromIntegral (length newlines)
-                      col' = case newlines of
-                               [] -> col + n
-                               _  -> n - last newlines
+                  let xlines = T.lines x
+                      row' = row + fromIntegral (length xlines - 1)
+                      col' = case xlines of
+                               [] -> col -- Empty selection
+                               [sameLine] -> T.length sameLine
+                                             -- Taken from this line
+                               _  -> T.length (last xlines)
+                                     -- Selection extends
+                                     -- to next line at least
                   put (s', row', col')
                   return x
 
