@@ -191,7 +191,7 @@ peek = do
 peekSnd :: Parser (Maybe Char)
 peekSnd = do
     s <- get
-    char
+    _ <- char
     c <- char
     put s
     return c
