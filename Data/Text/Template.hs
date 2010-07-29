@@ -29,7 +29,6 @@ module Data.Text.Template
      -- * The @Context@ type
      Context,
      ContextA,
-     makeContext,
 
      -- * Basic interface
      template,
@@ -50,12 +49,9 @@ import Control.Monad (liftM, liftM2)
 import Control.Monad.State (State, evalState, get, put)
 import Data.Char (isAlphaNum)
 import Data.Function (on)
-import Data.Map (Map)
-import Data.Maybe (fromMaybe)
 import Data.Traversable (traverse)
 import Prelude hiding (takeWhile)
 
-import qualified Data.Map as Map
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as LT
 
@@ -95,12 +91,6 @@ type Context = T.Text -> T.Text
 -- | Like 'Context' but with an applicative lookup function.
 type ContextA f = T.Text -> f T.Text
 
--- | Makes a context from a map, with a default item for unknown keys.
---
--- You can use a call to @error@ as the default item if you wish.
-makeContext :: T.Text -> Map T.Text T.Text -> Context
-makeContext def m k = fromMaybe def (Map.lookup k m)
-
 -- -----------------------------------------------------------------------------
 -- Basic interface
 
@@ -108,7 +98,7 @@ makeContext def m k = fromMaybe def (Map.lookup k m)
 template :: T.Text -> Template
 template = runParser pTemplate
 
--- | Performs the template substitution, returning a new 'Data.Text'.
+-- | Performs the template substitution, returning a new 'LT.Text'.
 render :: Template -> Context -> LT.Text
 render (Template frags) ctxFunc = LT.fromChunks $ map renderFrag frags
   where
@@ -129,14 +119,14 @@ renderA (Template frags) ctxFunc = LT.fromChunks <$> traverse renderFrag frags
     renderFrag (Var x _) = ctxFunc x
 
 -- | Performs the template substitution, returning a new
--- 'Data.Text'. Note that
+-- 'LT.Text'. Note that
 --
 -- > substitute tmpl ctx == render (template tmpl) ctx
 substitute :: T.Text -> Context -> LT.Text
 substitute = render . template
 
 -- | Performs the template substitution in the given @Applicative@,
--- returning a new 'Data.Text'. Note that
+-- returning a new 'LT.Text'. Note that
 --
 -- > substituteA tmpl ctx == renderA (template tmpl) ctx
 substituteA :: Applicative f => T.Text -> ContextA f -> f LT.Text
