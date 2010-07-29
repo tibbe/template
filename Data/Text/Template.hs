@@ -72,7 +72,7 @@ showTemplate :: Template -> T.Text
 showTemplate (Template fs) = T.concat $ map showFrag fs
 
 -- | A template fragment.
-data Frag = Lit !T.Text | Var !T.Text !Bool
+data Frag = Lit {-# UNPACK #-} !T.Text | Var {-# UNPACK #-} !T.Text !Bool
 
 instance Show Frag where
     show = T.unpack . showFrag
