@@ -57,6 +57,7 @@ import Prelude hiding (takeWhile)
 
 import qualified Data.Map as Map
 import qualified Data.Text as T
+import qualified Data.Text.Lazy as LT
 
 -- -----------------------------------------------------------------------------
 
@@ -108,8 +109,8 @@ template :: T.Text -> Template
 template = runParser pTemplate
 
 -- | Performs the template substitution, returning a new 'Data.Text'.
-render :: Template -> Context -> T.Text
-render (Template frags) ctxFunc = T.concat $ map renderFrag frags
+render :: Template -> Context -> LT.Text
+render (Template frags) ctxFunc = LT.fromChunks $ map renderFrag frags
   where
     renderFrag (Lit s)   = s
     renderFrag (Var x _) = ctxFunc x
@@ -121,8 +122,8 @@ render (Template frags) ctxFunc = T.concat $ map renderFrag frags
 -- during lookup of placeholders in the context, but primarily this is
 -- useful for error reporting (e.g. using 'Maybe') when a lookup
 -- cannot be made successfully.
-renderA :: Applicative f => Template -> ContextA f -> f T.Text
-renderA (Template frags) ctxFunc = T.concat <$> traverse renderFrag frags
+renderA :: Applicative f => Template -> ContextA f -> f LT.Text
+renderA (Template frags) ctxFunc = LT.fromChunks <$> traverse renderFrag frags
   where
     renderFrag (Lit s)   = pure s
     renderFrag (Var x _) = ctxFunc x
@@ -131,14 +132,14 @@ renderA (Template frags) ctxFunc = T.concat <$> traverse renderFrag frags
 -- 'Data.Text'. Note that
 --
 -- > substitute tmpl ctx == render (template tmpl) ctx
-substitute :: T.Text -> Context -> T.Text
+substitute :: T.Text -> Context -> LT.Text
 substitute = render . template
 
 -- | Performs the template substitution in the given @Applicative@,
 -- returning a new 'Data.Text'. Note that
 --
 -- > substituteA tmpl ctx == renderA (template tmpl) ctx
-substituteA :: Applicative f => T.Text -> ContextA f -> f T.Text
+substituteA :: Applicative f => T.Text -> ContextA f -> f LT.Text
 substituteA = renderA . template
 
 -- -----------------------------------------------------------------------------
@@ -262,41 +263,43 @@ runParser p s = evalState p (s, 1 :: Int, 1 :: Int)
 --
 -- > module Main where
 -- >
--- > import qualified Data.ByteString as S
+-- > import qualified Data.ByteString.Lazy as S
 -- > import qualified Data.Text as T
--- > import qualified Data.Text.Encoding as E
+-- > import qualified Data.Text.Lazy.Encoding as E
 -- >
 -- > import Data.Text.Template
 -- >
 -- > -- | Create 'Context' from association list.
--- > context :: [(String, String)] -> Context
--- > context = makeLookup . map packPair
--- >     where packPair (x, y) = (T.pack x, T.pack y)
--- >           makeLookup assocs x = case lookup x assocs of
--- >             Just y -> y
--- >             Nothing -> error ("Could not find key: " ++ T.unpack x)
+-- > context :: [(T.Text, T.Text)] -> Context
+-- > context assocs x = maybe err id . lookup x $ assocs
+-- >   where err = error $ "Could not find key: " ++ T.unpack x
 -- >
 -- > main :: IO ()
 -- > main = S.putStr $ E.encodeUtf8 $ substitute helloTemplate helloContext
 -- >   where
 -- >     helloTemplate = T.pack "Hello, $name!\n"
--- >     helloContext  = context [("name", "Joe")]
+-- >     helloContext  = context [(T.pack "name", T.pack "Joe")]
 --
--- The example can be simplified by using the 'OverloadedStrings'
+-- The example can be simplified by using the @OverloadedStrings@
 -- language extension:
 --
 -- > {-# LANGUAGE OverloadedStrings #-}
 -- >
 -- > module Main where
 -- >
--- > import qualified Data.ByteString as S
--- > import qualified Data.Map as M
--- > import qualified Data.Text.Encoding as E
+-- > import qualified Data.ByteString.Lazy as S
+-- > import qualified Data.Text as T
+-- > import qualified Data.Text.Lazy.Encoding as E
 -- >
 -- > import Data.Text.Template
+-- >
+-- > -- | Create 'Context' from association list.
+-- > context :: [(T.Text, T.Text)] -> Context
+-- > context assocs x = maybe err id . lookup x $ assocs
+-- >   where err = error $ "Could not find key: " ++ T.unpack x
 -- >
 -- > main :: IO ()
 -- > main = S.putStr $ E.encodeUtf8 $ substitute helloTemplate helloContext
 -- >   where
 -- >     helloTemplate = "Hello, $name!\n"
--- >     helloContext  = makeContext (error "Could not find key") [("name", "Joe")]
+-- >     helloContext  = context [("name", "Joe")]
