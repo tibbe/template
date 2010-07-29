@@ -28,7 +28,7 @@ module Data.Text.Template
 
      -- * The @Context@ type
      Context,
-     ContextM,
+     ContextA,
      makeContext,
 
      -- * Basic interface
@@ -37,20 +37,22 @@ module Data.Text.Template
      substitute,
      showTemplate,
 
-     -- * Monadic interface
-     renderM,
-     substituteM,
+     -- * Applicative interface
+     renderA,
+     substituteA,
 
      -- * Example
      -- $example
     ) where
 
+import Control.Applicative (Applicative(pure), (<$>))
 import Control.Monad (liftM, liftM2)
 import Control.Monad.State (State, evalState, get, put)
 import Data.Char (isAlphaNum)
 import Data.Function (on)
 import Data.Map (Map)
 import Data.Maybe (fromMaybe)
+import Data.Traversable (traverse)
 import Prelude hiding (takeWhile)
 
 import qualified Data.Map as Map
@@ -89,8 +91,8 @@ showFrag (Lit s) = T.concatMap escape s
 -- | A mapping with keys that match the placeholders in the template.
 type Context = T.Text -> T.Text
 
--- | Like 'Context' but with a monadic lookup function.
-type ContextM m = T.Text -> m T.Text
+-- | Like 'Context' but with an applicative lookup function.
+type ContextA f = T.Text -> f T.Text
 
 -- | Makes a context from a map, with a default item for unknown keys.
 --
@@ -112,16 +114,17 @@ render (Template frags) ctxFunc = T.concat $ map renderFrag frags
     renderFrag (Lit s)   = s
     renderFrag (Var x _) = ctxFunc x
 
--- | Like 'render' but allows the lookup to have monadic side effects.
--- The lookups are performed in order that they are needed in the text.
+-- | Like 'render' but allows the lookup to have side effects.  The
+-- lookups are performed in order that they are needed in the text.
 --
--- You can use this to have side effects (e.g. mutation of state) during your lookup,
--- but primarily this is useful to support error monads (e.g. Maybe) to allow
--- you to give an error if a lookup cannot be made successfully.
-renderM :: Monad m => Template -> ContextM m -> m T.Text
-renderM (Template frags) ctxFunc = liftM T.concat $ mapM renderFrag frags
+-- You can use this to have side effects (e.g. mutation of state)
+-- during lookup of placeholders in the context, but primarily this is
+-- useful for error reporting (e.g. using 'Maybe') when a lookup
+-- cannot be made successfully.
+renderA :: Applicative f => Template -> ContextA f -> f T.Text
+renderA (Template frags) ctxFunc = T.concat <$> traverse renderFrag frags
   where
-    renderFrag (Lit s)   = return s
+    renderFrag (Lit s)   = pure s
     renderFrag (Var x _) = ctxFunc x
 
 -- | Performs the template substitution, returning a new
@@ -131,12 +134,12 @@ renderM (Template frags) ctxFunc = liftM T.concat $ mapM renderFrag frags
 substitute :: T.Text -> Context -> T.Text
 substitute = render . template
 
--- | Performs the template substitution monadically, returning a new
--- 'Data.Text'. Note that
+-- | Performs the template substitution in the given @Applicative@,
+-- returning a new 'Data.Text'. Note that
 --
--- > substituteM tmpl ctx == renderM (template tmpl) ctx
-substituteM :: Monad m => T.Text -> ContextM m -> m T.Text
-substituteM = renderM . template
+-- > substituteA tmpl ctx == renderA (template tmpl) ctx
+substituteA :: Applicative f => T.Text -> ContextA f -> f T.Text
+substituteA = renderA . template
 
 -- -----------------------------------------------------------------------------
 -- Template parser
