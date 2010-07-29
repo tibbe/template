@@ -85,10 +85,10 @@ showFrag (Lit s) = T.concatMap escape s
     where escape '$' = T.pack "$$"
           escape c   = T.singleton c
 
--- | A mapping with keys that match the placeholders in the template.
+-- | A mapping from placeholders in the template to values.
 type Context = T.Text -> T.Text
 
--- | Like 'Context' but with an applicative lookup function.
+-- | Like 'Context', but with an applicative lookup function.
 type ContextA f = T.Text -> f T.Text
 
 -- -----------------------------------------------------------------------------
