@@ -105,13 +105,18 @@ render (Template frags) ctxFunc = LT.fromChunks $ map renderFrag frags
     renderFrag (Lit s)   = s
     renderFrag (Var x _) = ctxFunc x
 
--- | Like 'render' but allows the lookup to have side effects.  The
--- lookups are performed in order that they are needed in the text.
+-- | Like 'render', but allows the lookup to have side effects.  The
+-- lookups are performed in order that they are needed to generate the
+-- resulting text.
 --
--- You can use this to have side effects (e.g. mutation of state)
--- during lookup of placeholders in the context, but primarily this is
--- useful for error reporting (e.g. using 'Maybe') when a lookup
--- cannot be made successfully.
+-- You can use this e.g. to report errors when a lookup cannot be made
+-- successfully.  For example, given a list @ctx@ of key-value pairs
+-- and a @Template@ @tmpl@:
+--
+-- > renderA tmpl (flip lookup ctx)
+--
+-- will return @Nothing@ if any of the placeholders in the template
+-- don't appear in @ctx@ and @Just text@ otherwise.
 renderA :: Applicative f => Template -> ContextA f -> f LT.Text
 renderA (Template frags) ctxFunc = LT.fromChunks <$> traverse renderFrag frags
   where
@@ -270,8 +275,8 @@ runParser p s = evalState p (s, 1 :: Int, 1 :: Int)
 -- >     helloTemplate = T.pack "Hello, $name!\n"
 -- >     helloContext  = context [(T.pack "name", T.pack "Joe")]
 --
--- The example can be simplified by using the @OverloadedStrings@
--- language extension:
+-- The example can be simplified slightly by using the
+-- @OverloadedStrings@ language extension:
 --
 -- > {-# LANGUAGE OverloadedStrings #-}
 -- >
