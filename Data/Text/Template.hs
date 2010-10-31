@@ -96,7 +96,29 @@ type ContextA f = T.Text -> f T.Text
 
 -- | Creates a template from a template string.
 template :: T.Text -> Template
-template = runParser pTemplate
+template = Template . combineLits . runParser pFrags
+
+combineLits :: [Frag] -> [Frag]
+combineLits [] = []
+combineLits xs =
+    let (lits,xs') = span isLit xs
+    in case lits of
+         []    -> gatherVars xs'
+         [lit] -> lit : gatherVars xs'
+         _     -> Lit (T.concat (map fromLit lits)) : gatherVars xs'
+  where
+    gatherVars [] = []
+    gatherVars ys =
+      let (vars,ys') = span isVar ys
+      in vars ++ combineLits ys'
+
+    isLit (Lit _) = True
+    isLit _       = False
+
+    isVar = not . isLit
+
+    fromLit (Lit v) = v
+    fromLit _       = undefined
 
 -- | Performs the template substitution, returning a new 'LT.Text'.
 render :: Template -> Context -> LT.Text
@@ -139,9 +161,6 @@ substituteA = renderA . template
 
 -- -----------------------------------------------------------------------------
 -- Template parser
-
-pTemplate :: Parser Template
-pTemplate = fmap Template pFrags
 
 pFrags :: Parser [Frag]
 pFrags = do
