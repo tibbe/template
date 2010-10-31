@@ -13,7 +13,7 @@
 --      but are not part of the placeholder, such as
 --      \"${noun}ification\".
 --
--- Any other apperance of \"$\" in the string will result in an
+-- Any other appearance of \"$\" in the string will result in an
 -- 'Prelude.error' being raised.
 --
 -- If you render the same template multiple times it's faster to first
@@ -57,7 +57,7 @@ import qualified Data.Text.Lazy as LT
 
 -- -----------------------------------------------------------------------------
 
--- | A repesentation of a 'Data.Text' template, supporting efficient
+-- | A representation of a 'Data.Text' template, supporting efficient
 -- rendering.
 newtype Template = Template [Frag]
 
