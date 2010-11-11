@@ -216,9 +216,9 @@ parseError (row, col) = error $ "Invalid placeholder in string: line " ++
 -- Text parser
 
 -- | The parser state.
-data S = S {-# UNPACK #-} !T.Text  -- ^ Remaining input
-           {-# UNPACK #-} !Int     -- ^ Row
-           {-# UNPACK #-} !Int     -- ^ Col
+data S = S {-# UNPACK #-} !T.Text  -- Remaining input
+           {-# UNPACK #-} !Int     -- Row
+           {-# UNPACK #-} !Int     -- Col
 
 type Parser = State S
 
