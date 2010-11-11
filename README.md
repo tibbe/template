@@ -8,6 +8,7 @@ blown templating system is overkill.
 
 Usage example:
 
+    {-# LANGUAGE OverloadedStrings #-}
     module Main where
 
     import qualified Data.ByteString.Lazy as S
@@ -24,5 +25,5 @@ Usage example:
     main :: IO ()
     main = S.putStr $ E.encodeUtf8 $ substitute helloTemplate helloContext
       where
-        helloTemplate = T.pack "Hello, $name!\n"
-        helloContext  = context [(T.pack "name", T.pack "Joe")]
+        helloTemplate = "Hello, $name!\n"
+        helloContext  = context [("name", "Joe")]
