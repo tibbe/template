@@ -46,7 +46,7 @@ module Data.Text.Template
 
 import Control.Applicative (Applicative(pure), (<$>))
 import Control.Monad (liftM, liftM2)
-import Control.Monad.State (State, evalState, get, put)
+import Control.Monad.State.Strict (State, evalState, get, put)
 import Data.Char (isAlphaNum)
 import Data.Function (on)
 import Data.Traversable (traverse)
@@ -215,17 +215,22 @@ parseError (row, col) = error $ "Invalid placeholder in string: line " ++
 -- -----------------------------------------------------------------------------
 -- Text parser
 
-type Parser = State (T.Text, Int, Int)
+-- | The parser state.
+data S = S {-# UNPACK #-} !T.Text  -- ^ Remaining input
+           {-# UNPACK #-} !Int     -- ^ Row
+           {-# UNPACK #-} !Int     -- ^ Col
+
+type Parser = State S
 
 char :: Parser (Maybe Char)
 char = do
-    (s, row, col) <- get
+    S s row col <- get
     if T.null s
       then return Nothing
       else do c <- return $! T.head s
               case c of
-                '\n' -> put (T.tail s, row + 1 :: Int, 1 :: Int)
-                _    -> put (T.tail s, row, col + 1 :: Int)
+                '\n' -> put $! S (T.tail s) (row + 1) 1
+                _    -> put $! S (T.tail s) row (col + 1)
               return $ Just c
 
 peek :: Parser (Maybe Char)
@@ -245,7 +250,7 @@ peekSnd = do
 
 takeWhile :: (Char -> Bool) -> Parser T.Text
 takeWhile p = do
-    (s, row, col) <- get
+    S s row col <- get
     case T.spanBy p s of
       (x, s') -> do
                   let xlines = T.lines x
@@ -257,16 +262,16 @@ takeWhile p = do
                                _  -> T.length (last xlines)
                                      -- Selection extends
                                      -- to next line at least
-                  put (s', row', col')
+                  put $! S s' row' col'
                   return x
 
 pos :: Parser (Int, Int)
 pos = do
-    (_, row, col) <- get
+    S _ row col <- get
     return (row, col)
 
 runParser :: Parser a -> T.Text -> a
-runParser p s = evalState p (s, 1 :: Int, 1 :: Int)
+runParser p s = evalState p $ S s 1 1
 
 -- -----------------------------------------------------------------------------
 -- Example
