@@ -183,13 +183,13 @@ pFrags :: Parser [Frag]
 pFrags = do
     c <- peek
     case c of
-        Nothing  -> return []
-        Just '$' -> do c' <- peekSnd
-                       case c' of
-                           Just '$' -> do discard 2
-                                          continue (return $ Lit $ T.pack "$")
-                           _        -> continue pVar
-        _        -> continue pLit
+      Nothing  -> return []
+      Just '$' -> do c' <- peekSnd
+                     case c' of
+                       Just '$' -> do discard 2
+                                      continue (return $ Lit $ T.pack "$")
+                       _        -> continue pVar
+      _        -> continue pLit
   where
     continue x = liftM2 (:) x pFrags
 
@@ -199,15 +199,15 @@ pFragsSafe = pFragsSafe' []
     pFragsSafe' frags = do
         c <- peek
         case c of
-            Nothing  -> return . Right . reverse $ frags
-            Just '$' -> do c' <- peekSnd
-                           case c' of
-                               Just '$' -> do discard 2
-                                              continue (Lit $ T.pack "$")
-                               _        -> do e <- pVarSafe
-                                              either abort continue e
-            _        -> do l <- pLit
-                           continue l
+          Nothing  -> return . Right . reverse $ frags
+          Just '$' -> do c' <- peekSnd
+                         case c' of
+                           Just '$' -> do discard 2
+                                          continue (Lit $ T.pack "$")
+                           _        -> do e <- pVarSafe
+                                          either abort continue e
+          _        -> do l <- pLit
+                         continue l
       where
         continue x = pFragsSafe' (x : frags)
         abort      = return . Left
@@ -217,32 +217,32 @@ pVar = do
     discard 1
     c <- peek
     case c of
-        Just '{' -> do discard 1
-                       v <- pIdentifier
-                       c' <- peek
-                       case c' of
-                         Just '}' -> do discard 1
-                                        return $ Var v True
-                         _        -> liftM parseError pos
-        _        -> do v <- pIdentifier
-                       return $ Var v False
+      Just '{' -> do discard 1
+                     v <- pIdentifier
+                     c' <- peek
+                     case c' of
+                       Just '}' -> do discard 1
+                                      return $ Var v True
+                       _        -> liftM parseError pos
+      _        -> do v <- pIdentifier
+                     return $ Var v False
 
 pVarSafe :: Parser (Either String Frag)
 pVarSafe = do
     discard 1
     c <- peek
     case c of
-        Just '{' -> do discard 1
-                       e <- pIdentifierSafe
-                       case e of
-                         Right v -> do c' <- peek
-                                       case c' of
-                                         Just '}' -> do discard 1
-                                                        return $ Right (Var v True)
-                                         _        -> liftM parseErrorSafe pos
-                         Left m  -> return $ Left m
-        _        -> do e <- pIdentifierSafe
-                       return $ either Left (\v -> Right $ Var v False) e
+      Just '{' -> do discard 1
+                     e <- pIdentifierSafe
+                     case e of
+                       Right v -> do c' <- peek
+                                     case c' of
+                                       Just '}' -> do discard 1
+                                                      return $ Right (Var v True)
+                                       _        -> liftM parseErrorSafe pos
+                       Left m  -> return $ Left m
+      _        -> do e <- pIdentifierSafe
+                     return $ either Left (\v -> Right $ Var v False) e
 
 pIdentifier :: Parser T.Text
 pIdentifier = do
