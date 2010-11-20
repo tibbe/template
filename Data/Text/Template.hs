@@ -49,7 +49,7 @@ module Data.Text.Template
     ) where
 
 import Control.Applicative (Applicative(pure), (<$>))
-import Control.Monad (liftM, liftM2)
+import Control.Monad (liftM, liftM2, replicateM_)
 import Control.Monad.State.Strict (State, evalState, get, put)
 import Data.Char (isAlphaNum, isLower)
 import Data.Function (on)
@@ -185,8 +185,7 @@ pFrags = do
         Nothing  -> return []
         Just '$' -> do c' <- peekSnd
                        case c' of
-                           Just '$' -> do Just '$' <- char
-                                          Just '$' <- char
+                           Just '$' -> do discard 2
                                           continue (return $ Lit $ T.pack "$")
                            _        -> continue pVar
         _        -> continue pLit
@@ -202,8 +201,7 @@ pFragsSafe = pFragsSafe' []
             Nothing  -> return . Right . reverse $ frags
             Just '$' -> do c' <- peekSnd
                            case c' of
-                               Just '$' -> do Just '$' <- char
-                                              Just '$' <- char
+                               Just '$' -> do discard 2
                                               continue (Lit $ T.pack "$")
                                _        -> do e <- pVarSafe
                                               either abort continue e
@@ -215,14 +213,14 @@ pFragsSafe = pFragsSafe' []
 
 pVar :: Parser Frag
 pVar = do
-    Just '$' <- char
+    discard 1
     c <- peek
     case c of
-        Just '{' -> do Just '{' <- char
+        Just '{' -> do discard 1
                        v <- pIdentifier
                        c' <- peek
                        case c' of
-                         Just '}' -> do Just '}' <- char
+                         Just '}' -> do discard 1
                                         return $ Var v True
                          _        -> liftM parseError pos
         _        -> do v <- pIdentifier
@@ -230,15 +228,15 @@ pVar = do
 
 pVarSafe :: Parser (Either String Frag)
 pVarSafe = do
-    Just '$' <- char
+    discard 1
     c <- peek
     case c of
-        Just '{' -> do Just '{' <- char
+        Just '{' -> do discard 1
                        e <- pIdentifierSafe
                        case e of
                          Right v -> do c' <- peek
                                        case c' of
-                                         Just '}' -> do Just '}' <- char
+                                         Just '}' -> do discard 1
                                                         return $ Right (Var v True)
                                          _        -> liftM parseErrorSafe pos
                          Left m  -> return $ Left m
@@ -341,6 +339,9 @@ takeWhile p = do
                                      -- to next line at least
                   put $! S s' row' col'
                   return x
+
+discard :: Int -> Parser ()
+discard n = replicateM_ n char
 
 pos :: Parser (Int, Int)
 pos = do
