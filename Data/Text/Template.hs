@@ -99,7 +99,8 @@ type ContextA f = T.Text -> f T.Text
 -- -----------------------------------------------------------------------------
 -- Basic interface
 
--- | Creates a template from a template string.
+-- | Creates a template from a template string.  A malformed template
+-- string will raise an 'error'.
 template :: T.Text -> Template
 template = templateFromFrags . runParser pFrags
 
@@ -158,8 +159,8 @@ renderA (Template frags) ctxFunc = LT.fromChunks <$> traverse renderFrag frags
     renderFrag (Lit s)   = pure s
     renderFrag (Var x _) = ctxFunc x
 
--- | Performs the template substitution, returning a new
--- 'LT.Text'. Note that
+-- | Performs the template substitution, returning a new 'LT.Text'.  A
+-- malformed template string will raise an 'error'.  Note that
 --
 -- > substitute tmpl ctx == render (template tmpl) ctx
 substitute :: T.Text -> Context -> LT.Text
