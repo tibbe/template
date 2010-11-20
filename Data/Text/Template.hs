@@ -49,7 +49,7 @@ module Data.Text.Template
 import Control.Applicative (Applicative(pure), (<$>))
 import Control.Monad (liftM, liftM2)
 import Control.Monad.State.Strict (State, evalState, get, put)
-import Data.Char (isAlphaNum)
+import Data.Char (isAlphaNum, isLower)
 import Data.Function (on)
 import Data.Traversable (traverse)
 import Prelude hiding (takeWhile)
@@ -204,11 +204,12 @@ pIdentifier = do
     c <- peek
     case c of
       Just c'
-          | isAlphaNum c' -> takeWhile isIdentifier
-          | otherwise     -> liftM parseError pos
-      Nothing             -> liftM parseError pos
+          | isIdentifier0 c' -> takeWhile isIdentifier1
+          | otherwise        -> liftM parseError pos
+      Nothing                -> liftM parseError pos
   where
-    isIdentifier c = or [isAlphaNum c, c `elem` "_'"]
+    isIdentifier0 c = or [isLower c, c == '_']
+    isIdentifier1 c = or [isAlphaNum c, c `elem` "_'"]
 
 parseError :: (Int, Int) -> a
 parseError (row, col) = error $ "Invalid placeholder in string: line " ++
