@@ -34,8 +34,10 @@ module Data.Text.Template
 
      -- * Basic interface
      template,
+     templateSafe,
      render,
      substitute,
+     substituteSafe,
      showTemplate,
 
      -- * Applicative interface
@@ -98,7 +100,15 @@ type ContextA f = T.Text -> f T.Text
 
 -- | Creates a template from a template string.
 template :: T.Text -> Template
-template = Template . combineLits . runParser pFrags
+template = templateFromFrags . runParser pFrags
+
+-- | Creates a template from a template string.
+templateSafe :: T.Text -> Either String Template
+templateSafe =
+    either Left (Right . templateFromFrags) . runParser pFragsSafe
+
+templateFromFrags :: [Frag] -> Template
+templateFromFrags = Template . combineLits
 
 combineLits :: [Frag] -> [Frag]
 combineLits [] = []
@@ -154,6 +164,10 @@ renderA (Template frags) ctxFunc = LT.fromChunks <$> traverse renderFrag frags
 substitute :: T.Text -> Context -> LT.Text
 substitute = render . template
 
+substituteSafe :: T.Text -> Context -> Either String LT.Text
+substituteSafe s ctxFunc =
+    either Left (\t -> Right $ render t ctxFunc) (templateSafe s)
+
 -- | Performs the template substitution in the given @Applicative@,
 -- returning a new 'LT.Text'. Note that
 --
@@ -179,10 +193,25 @@ pFrags = do
   where
     continue x = liftM2 (:) x pFrags
 
-pLit :: Parser Frag
-pLit = do
-    s <- takeWhile (/= '$')
-    return $ Lit s
+pFragsSafe :: Parser (Either String [Frag])
+pFragsSafe = pFragsSafe' []
+  where
+    pFragsSafe' frags = do
+        c <- peek
+        case c of
+            Nothing  -> return . Right . reverse $ frags
+            Just '$' -> do c' <- peekSnd
+                           case c' of
+                               Just '$' -> do Just '$' <- char
+                                              Just '$' <- char
+                                              continue (Lit $ T.pack "$")
+                               _        -> do e <- pVarSafe
+                                              either abort continue e
+            _        -> do l <- pLit
+                           continue l
+      where
+        continue x = pFragsSafe' (x : frags)
+        abort      = return . Left
 
 pVar :: Parser Frag
 pVar = do
@@ -199,6 +228,23 @@ pVar = do
         _        -> do v <- pIdentifier
                        return $ Var v False
 
+pVarSafe :: Parser (Either String Frag)
+pVarSafe = do
+    Just '$' <- char
+    c <- peek
+    case c of
+        Just '{' -> do Just '{' <- char
+                       e <- pIdentifierSafe
+                       case e of
+                         Right v -> do c' <- peek
+                                       case c' of
+                                         Just '}' -> do Just '}' <- char
+                                                        return $ Right (Var v True)
+                                         _        -> liftM parseErrorSafe pos
+                         Left m  -> return $ Left m
+        _        -> do e <- pIdentifierSafe
+                       return $ either Left (\v -> Right $ Var v False) e
+
 pIdentifier :: Parser T.Text
 pIdentifier = do
     c <- peek
@@ -207,13 +253,37 @@ pIdentifier = do
           | isIdentifier0 c' -> takeWhile isIdentifier1
           | otherwise        -> liftM parseError pos
       Nothing                -> liftM parseError pos
-  where
-    isIdentifier0 c = or [isLower c, c == '_']
-    isIdentifier1 c = or [isAlphaNum c, c `elem` "_'"]
+
+pIdentifierSafe :: Parser (Either String T.Text)
+pIdentifierSafe = do
+    c <- peek
+    case c of
+      Just c'
+          | isIdentifier0 c' -> liftM Right (takeWhile isIdentifier1)
+          | otherwise        -> liftM parseErrorSafe pos
+      Nothing                -> liftM parseErrorSafe pos
+
+pLit :: Parser Frag
+pLit = do
+    s <- takeWhile (/= '$')
+    return $ Lit s
+
+isIdentifier0 :: Char -> Bool
+isIdentifier0 c = or [isLower c, c == '_']
+
+isIdentifier1 :: Char -> Bool
+isIdentifier1 c = or [isAlphaNum c, c `elem` "_'"]
 
 parseError :: (Int, Int) -> a
-parseError (row, col) = error $ "Invalid placeholder in string: line " ++
-                        show row ++ ", col " ++ show col
+parseError = error . makeParseErrorMessage
+
+parseErrorSafe :: (Int, Int) -> Either String a
+parseErrorSafe = Left . makeParseErrorMessage
+
+makeParseErrorMessage :: (Int, Int) -> String
+makeParseErrorMessage (row, col) =
+    "Invalid placeholder at " ++
+    "row " ++ show row ++ ", col " ++ show col
 
 -- -----------------------------------------------------------------------------
 -- Text parser
