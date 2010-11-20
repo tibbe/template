@@ -53,6 +53,7 @@ import Control.Monad (liftM, liftM2, replicateM_)
 import Control.Monad.State.Strict (State, evalState, get, put)
 import Data.Char (isAlphaNum, isLower)
 import Data.Function (on)
+import Data.Maybe (fromJust, isJust)
 import Data.Traversable (traverse)
 import Prelude hiding (takeWhile)
 
@@ -245,21 +246,17 @@ pVarSafe = do
 
 pIdentifier :: Parser T.Text
 pIdentifier = do
-    c <- peek
-    case c of
-      Just c'
-          | isIdentifier0 c' -> takeWhile isIdentifier1
-          | otherwise        -> liftM parseError pos
-      Nothing                -> liftM parseError pos
+    m <- peek
+    if isJust m && isIdentifier0 (fromJust m)
+      then takeWhile isIdentifier1
+      else liftM parseError pos
 
 pIdentifierSafe :: Parser (Either String T.Text)
 pIdentifierSafe = do
-    c <- peek
-    case c of
-      Just c'
-          | isIdentifier0 c' -> liftM Right (takeWhile isIdentifier1)
-          | otherwise        -> liftM parseErrorSafe pos
-      Nothing                -> liftM parseErrorSafe pos
+    m <- peek
+    if isJust m && isIdentifier0 (fromJust m)
+      then liftM Right (takeWhile isIdentifier1)
+      else liftM parseErrorSafe pos
 
 pLit :: Parser Frag
 pLit = do
