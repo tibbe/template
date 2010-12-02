@@ -1,3 +1,5 @@
+{-# LANGUAGE CPP #-}
+
 -- | A simple string substitution library that supports \"$\"-based
 -- substitution. Substitution uses the following rules:
 --
@@ -251,7 +253,11 @@ peekSnd = do
 takeWhile :: (Char -> Bool) -> Parser T.Text
 takeWhile p = do
     S s row col <- get
+#if MIN_VERSION_text(0,10,0)
+    case T.span p s of
+#else
     case T.spanBy p s of
+#endif
       (x, s') -> do
                   let xlines = T.lines x
                       row' = row + fromIntegral (length xlines - 1)
