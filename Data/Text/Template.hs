@@ -320,7 +320,7 @@ peekSnd = do
 takeWhile :: (Char -> Bool) -> Parser T.Text
 takeWhile p = do
     S s row col <- get
-#if MIN_VERSION_text(0,10,0)
+#if MIN_VERSION_text(0,11,0)
     case T.span p s of
 #else
     case T.spanBy p s of
