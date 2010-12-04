@@ -71,7 +71,7 @@ instance Eq Template where
 instance Show Template where
     show = T.unpack . showTemplate
 
--- | Shows the template string.
+-- | Show the template string.
 showTemplate :: Template -> T.Text
 showTemplate (Template fs) = T.concat $ map showFrag fs
 
@@ -98,12 +98,12 @@ type ContextA f = T.Text -> f T.Text
 -- -----------------------------------------------------------------------------
 -- Basic interface
 
--- | Creates a template from a template string.  A malformed template
+-- | Create a template from a template string.  A malformed template
 -- string will raise an 'error'.
 template :: T.Text -> Template
 template = templateFromFrags . runParser pFrags
 
--- | Creates a template from a template string.  A malformed template
+-- | Create a template from a template string.  A malformed template
 -- string will cause 'templateSafe' to return @Left (row, col)@, where
 -- @row@ starts at 1 and @col@ at 0.
 templateSafe :: T.Text -> Either (Int, Int) Template
@@ -135,7 +135,7 @@ combineLits xs =
     fromLit (Lit v) = v
     fromLit _       = undefined
 
--- | Performs the template substitution, returning a new 'LT.Text'.
+-- | Perform the template substitution, returning a new 'LT.Text'.
 render :: Template -> Context -> LT.Text
 render (Template frags) ctxFunc = LT.fromChunks $ map renderFrag frags
   where
@@ -148,11 +148,11 @@ render (Template frags) ctxFunc = LT.fromChunks $ map renderFrag frags
 --
 -- You can use this e.g. to report errors when a lookup cannot be made
 -- successfully.  For example, given a list @ctx@ of key-value pairs
--- and a @Template@ @tmpl@:
+-- and a 'Template' @tmpl@:
 --
 -- > renderA tmpl (flip lookup ctx)
 --
--- will return @Nothing@ if any of the placeholders in the template
+-- will return 'Nothing' if any of the placeholders in the template
 -- don't appear in @ctx@ and @Just text@ otherwise.
 renderA :: Applicative f => Template -> ContextA f -> f LT.Text
 renderA (Template frags) ctxFunc = LT.fromChunks <$> traverse renderFrag frags
@@ -160,14 +160,14 @@ renderA (Template frags) ctxFunc = LT.fromChunks <$> traverse renderFrag frags
     renderFrag (Lit s)   = pure s
     renderFrag (Var x _) = ctxFunc x
 
--- | Performs the template substitution, returning a new 'LT.Text'.  A
+-- | Perform the template substitution, returning a new 'LT.Text'.  A
 -- malformed template string will raise an 'error'.  Note that
 --
 -- > substitute tmpl ctx == render (template tmpl) ctx
 substitute :: T.Text -> Context -> LT.Text
 substitute = render . template
 
--- | Performs the template substitution in the given @Applicative@,
+-- | Perform the template substitution in the given 'Applicative',
 -- returning a new 'LT.Text'. Note that
 --
 -- > substituteA tmpl ctx == renderA (template tmpl) ctx
