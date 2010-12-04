@@ -37,7 +37,6 @@ module Data.Text.Template
      templateSafe,
      render,
      substitute,
-     substituteSafe,
      showTemplate,
 
      -- * Applicative interface
@@ -165,10 +164,6 @@ renderA (Template frags) ctxFunc = LT.fromChunks <$> traverse renderFrag frags
 -- > substitute tmpl ctx == render (template tmpl) ctx
 substitute :: T.Text -> Context -> LT.Text
 substitute = render . template
-
-substituteSafe :: T.Text -> Context -> Either String LT.Text
-substituteSafe s ctxFunc =
-    either Left (\t -> Right $ render t ctxFunc) (templateSafe s)
 
 -- | Performs the template substitution in the given @Applicative@,
 -- returning a new 'LT.Text'. Note that
