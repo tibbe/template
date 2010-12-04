@@ -103,8 +103,10 @@ type ContextA f = T.Text -> f T.Text
 template :: T.Text -> Template
 template = templateFromFrags . runParser pFrags
 
--- | Creates a template from a template string.
-templateSafe :: T.Text -> Either String Template
+-- | Creates a template from a template string.  A malformed template
+-- string will cause 'templateSafe' to return @Left (row, col)@, where
+-- @row@ starts at 1 and @col@ at 0.
+templateSafe :: T.Text -> Either (Int, Int) Template
 templateSafe =
     either Left (Right . templateFromFrags) . runParser pFragsSafe
 
@@ -189,7 +191,7 @@ pFrags = do
   where
     continue x = liftM2 (:) x pFrags
 
-pFragsSafe :: Parser (Either String [Frag])
+pFragsSafe :: Parser (Either (Int, Int) [Frag])
 pFragsSafe = pFragsSafe' []
   where
     pFragsSafe' frags = do
@@ -223,7 +225,7 @@ pVar = do
       _        -> do v <- pIdentifier
                      return $ Var v False
 
-pVarSafe :: Parser (Either String Frag)
+pVarSafe :: Parser (Either (Int, Int) Frag)
 pVarSafe = do
     discard 1
     c <- peek
@@ -247,7 +249,7 @@ pIdentifier = do
       then takeWhile isIdentifier1
       else liftM parseError pos
 
-pIdentifierSafe :: Parser (Either String T.Text)
+pIdentifierSafe :: Parser (Either (Int, Int) T.Text)
 pIdentifierSafe = do
     m <- peek
     if isJust m && isIdentifier0 (fromJust m)
@@ -268,8 +270,8 @@ isIdentifier1 c = or [isAlphaNum c, c `elem` "_'"]
 parseError :: (Int, Int) -> a
 parseError = error . makeParseErrorMessage
 
-parseErrorSafe :: (Int, Int) -> Either String a
-parseErrorSafe = Left . makeParseErrorMessage
+parseErrorSafe :: (Int, Int) -> Either (Int, Int) a
+parseErrorSafe = Left
 
 makeParseErrorMessage :: (Int, Int) -> String
 makeParseErrorMessage (row, col) =
@@ -342,7 +344,7 @@ pos = do
     return (row, col)
 
 runParser :: Parser a -> T.Text -> a
-runParser p s = evalState p $ S s 1 1
+runParser p s = evalState p $ S s 1 0
 
 -- -----------------------------------------------------------------------------
 -- Example
