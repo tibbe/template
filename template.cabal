@@ -20,7 +20,7 @@ library
 
   build-depends:
     base >= 3.0 && < 4.6,
-    mtl >= 1.1 && < 2.0.2,
+    mtl >= 1.1 && < 2.2,
     text >= 0.7.2 && < 0.12
 
   extensions: CPP
