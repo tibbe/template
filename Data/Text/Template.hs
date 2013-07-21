@@ -53,6 +53,7 @@ import Control.Monad.State.Strict (State, evalState, get, put)
 import Data.Char (isAlphaNum, isLower)
 import Data.Function (on)
 import Data.Maybe (fromJust, isJust)
+import Data.Monoid (Monoid(mempty, mappend))
 import Data.Traversable (traverse)
 import Prelude hiding (takeWhile)
 
@@ -67,6 +68,15 @@ newtype Template = Template [Frag]
 
 instance Eq Template where
     (==) = (==) `on` showTemplate
+
+-- Properties that hold:
+--
+-- 1. @template "" = mempty@
+--
+-- 2. @template x `mappend` template y = template $ x `T.append` y@
+instance Monoid Template where
+    mempty = Template []
+    Template fs `mappend` Template fs' = Template $ fs ++ fs'
 
 instance Show Template where
     show = T.unpack . showTemplate
