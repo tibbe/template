@@ -30,4 +30,4 @@ library
 
 source-repository head
   type:     git
-  location: git://github.com/tibbe/template.git
+  location: https://github.com/tibbe/template
