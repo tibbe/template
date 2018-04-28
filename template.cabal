@@ -25,8 +25,13 @@ library
 
   extensions: CPP
   ghc-options: -funbox-strict-fields -Wall
-  if impl(ghc >= 6.8)
-    ghc-options: -fwarn-tabs
+
+  if impl(ghc >= 8)
+    ghc-options: -Wtabs
+    cpp-options: -DHAVE_SEMIGROUP
+  else
+    if impl(ghc >= 6.8)
+      ghc-options: -fwarn-tabs
 
 source-repository head
   type:     git

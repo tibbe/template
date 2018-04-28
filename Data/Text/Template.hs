@@ -57,6 +57,11 @@ import Data.Monoid (Monoid(mempty, mappend))
 import Data.Traversable (traverse)
 import Prelude hiding (takeWhile)
 
+#ifdef HAVE_SEMIGROUP
+import Data.Semigroup (Semigroup)
+import qualified Data.Semigroup as Semigroup
+#endif
+
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as LT
 
@@ -69,14 +74,33 @@ newtype Template = Template [Frag]
 instance Eq Template where
     (==) = (==) `on` showTemplate
 
--- Properties that hold:
+append :: Template -> Template -> Template
+Template frags `append` Template frags' = Template $ frags ++ frags'
+
+#ifdef HAVE_SEMIGROUP
+-- | Property that holds:
 --
--- 1. @template "" = mempty@
+-- @
+-- template x <> template y = template $ x \`T.append\` y
+-- @
+instance Semigroup Template where
+    (<>) = append
+#endif
+
+-- | Properties that hold:
 --
--- 2. @template x `mappend` template y = template $ x `T.append` y@
+-- 1. @template \"\" = mempty@
+--
+-- 2. @template x \`mappend\` template y = template $ x \`T.append\` y@
 instance Monoid Template where
     mempty = Template []
-    Template fs `mappend` Template fs' = Template $ fs ++ fs'
+
+    mappend =
+#ifdef HAVE_SEMIGROUP
+        (Semigroup.<>)
+#else
+        append
+#endif
 
 instance Show Template where
     show = T.unpack . showTemplate
